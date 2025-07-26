@@ -5,8 +5,13 @@ import json
 import db
 from models import UploadJSONModel
 from llama_indexer import bm25_index
+import nltk
 
 app = FastAPI()
+
+# Download NLTK WordNet data on startup
+nltk.download('wordnet')
+nltk.download('omw-1.4')
 
 # Allow CORS for frontend
 app.add_middleware(

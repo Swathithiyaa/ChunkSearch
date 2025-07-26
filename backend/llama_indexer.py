@@ -2,6 +2,7 @@ from rank_bm25 import BM25Okapi
 from typing import List, Dict, Any, Optional
 import db
 import re
+from nltk.corpus import wordnet
 
 class BM25Index:
     def __init__(self):
@@ -12,6 +13,21 @@ class BM25Index:
     def tokenize(self, text: str) -> List[str]:
         """Simple tokenization - split on whitespace and remove punctuation"""
         return re.findall(r'\b\w+\b', text.lower())
+
+    def get_synonyms(self, word: str) -> set:
+        synonyms = set()
+        for syn in wordnet.synsets(word):
+            for lemma in syn.lemmas():
+                synonym = lemma.name().replace('_', ' ').lower()
+                if synonym != word.lower():
+                    synonyms.add(synonym)
+        return synonyms
+
+    def expand_query_with_synonyms(self, query_tokens: List[str]) -> List[str]:
+        expanded = set(query_tokens)
+        for token in query_tokens:
+            expanded.update(self.get_synonyms(token))
+        return list(expanded)
 
     def build_index(self):
         chunks = db.get_all_chunks()
@@ -44,11 +60,12 @@ class BM25Index:
         if not self.bm25:
             return []
         
-        # Tokenize the query
+        # Tokenize and expand the query with synonyms
         query_tokens = self.tokenize(query)
+        expanded_tokens = self.expand_query_with_synonyms(query_tokens)
         
         # Get BM25 scores
-        scores = self.bm25.get_scores(query_tokens)
+        scores = self.bm25.get_scores(expanded_tokens)
         
         # Create list of (score, metadata) tuples
         scored_docs = list(zip(scores, self.metadata))

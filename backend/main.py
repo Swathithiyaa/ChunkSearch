@@ -37,14 +37,7 @@ def upload_json(file: UploadFile = File(...)):
 @app.get("/search")
 def search(
     query: str = Query(...),
-    file_source: Optional[str] = Query(None),
-    label: Optional[str] = Query(None),
-    top_k: int = Query(5)
+    top_k: int = Query(50)
 ):
-    metadata_filter = {}
-    if file_source:
-        metadata_filter['file_source'] = file_source
-    if label:
-        metadata_filter['label'] = label
-    results = bm25_index.search(query, metadata_filter=metadata_filter, top_k=top_k)
+    results = bm25_index.search(query, top_k=top_k)
     return {"results": results} 

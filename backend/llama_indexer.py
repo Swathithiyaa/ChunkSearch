@@ -56,10 +56,14 @@ class BM25Index:
         # Sort by score (descending)
         scored_docs.sort(key=lambda x: x[0], reverse=True)
         results = []
-        
-        # Return all relevant chunks (with positive scores) up to top_k
+        seen = set()
+        # Return all relevant chunks (with positive scores) up to top_k, removing duplicates
         for score, meta in scored_docs:
-            if score > 0:  # Only include documents with positive scores
+            if score > 0:
+                unique_key = (meta['content'], meta['file_source'], meta['label'])
+                if unique_key in seen:
+                    continue
+                seen.add(unique_key)
                 results.append({
                     'content': meta['content'],
                     'metadata': {k: v for k, v in meta.items() if k != 'content'},

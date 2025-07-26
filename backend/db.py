@@ -25,6 +25,17 @@ def create_table():
 
 def insert_chunk(chunk: Dict[str, Any]):
     with get_connection() as conn:
+        # Check for existing chunk
+        cursor = conn.execute(
+            '''
+            SELECT id FROM chunks
+            WHERE file_source = ? AND label = ? AND content = ?
+            ''',
+            (chunk.get('file_source'), chunk.get('label'), chunk.get('content'))
+        )
+        if cursor.fetchone():
+            return  # Duplicate found, do not insert
+
         conn.execute('''
             INSERT INTO chunks (file_source, label, content, page_number, created_at, author, category, tags)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)

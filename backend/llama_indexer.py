@@ -1,0 +1,79 @@
+from rank_bm25 import BM25Okapi
+from typing import List, Dict, Any, Optional
+import db
+import re
+
+class BM25Index:
+    def __init__(self):
+        self.documents = []
+        self.metadata = []
+        self.bm25 = None
+
+    def tokenize(self, text: str) -> List[str]:
+        """Simple tokenization - split on whitespace and remove punctuation"""
+        return re.findall(r'\b\w+\b', text.lower())
+
+    def build_index(self):
+        chunks = db.get_all_chunks()
+        self.documents = []
+        self.metadata = []
+        
+        for chunk in chunks:
+            # Tokenize the content
+            tokens = self.tokenize(chunk['content'])
+            self.documents.append(tokens)
+            self.metadata.append({
+                'id': chunk['id'],
+                'file_source': chunk['file_source'],
+                'label': chunk['label'],
+                'page_number': chunk['page_number'],
+                'created_at': chunk['created_at'],
+                'author': chunk['author'],
+                'category': chunk['category'],
+                'tags': chunk['tags'],
+                'content': chunk['content']
+            })
+        
+        if self.documents:
+            self.bm25 = BM25Okapi(self.documents)
+
+    def search(self, query: str, metadata_filter: Optional[Dict[str, Any]] = None, top_k: int = 5) -> List[Dict[str, Any]]:
+        if not self.bm25:
+            self.build_index()
+        
+        if not self.bm25:
+            return []
+        
+        # Tokenize the query
+        query_tokens = self.tokenize(query)
+        
+        # Get BM25 scores
+        scores = self.bm25.get_scores(query_tokens)
+        
+        # Create list of (score, metadata) tuples
+        scored_docs = list(zip(scores, self.metadata))
+        
+        # Filter by metadata if specified
+        if metadata_filter:
+            filtered_docs = []
+            for score, meta in scored_docs:
+                match = all(str(meta.get(k)) == str(v) for k, v in metadata_filter.items() if v is not None)
+                if match:
+                    filtered_docs.append((score, meta))
+            scored_docs = filtered_docs
+        
+        # Sort by score (descending) and take top_k
+        scored_docs.sort(key=lambda x: x[0], reverse=True)
+        results = []
+        
+        for score, meta in scored_docs[:top_k]:
+            if score > 0:  # Only include documents with positive scores
+                results.append({
+                    'content': meta['content'],
+                    'metadata': {k: v for k, v in meta.items() if k != 'content'},
+                    'score': float(score)
+                })
+        
+        return results
+
+bm25_index = BM25Index() 
